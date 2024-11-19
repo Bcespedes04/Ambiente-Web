@@ -8,6 +8,18 @@ app = Flask(__name__)
 ROSTROS_DIR = r"C:\Users\bcespedes\OneDrive - Traarepuestos\Escritorio\U Fide\Ufide 3er cuatri\Ambiente Web\Proyecto\Data"
 
 @app.route('/')
+def login():
+    return render_template('login.html')
+
+@app.route('/signup')
+def signup():
+    return render_template('signup.html')
+
+@app.route('/crudRolesUser')
+def roles():
+    return render_template('crudRolesUser.html')
+
+@app.route('/index')
 def index():
     return render_template('index.html')
 
