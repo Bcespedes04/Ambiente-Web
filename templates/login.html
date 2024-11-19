@@ -98,10 +98,6 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="/add_faces">Agregar</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/delete_faces">Eliminar</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="#">Contáctenos</a>
@@ -114,7 +110,7 @@
         </div>
     </nav>
     <div class="container mt-5 pt-5">
-        <form method="post">
+        <form>
             <div class="imgcontainer">
                 <img src="img_avatar2.png" alt="Avatar" class="avatar">
             </div>
@@ -126,19 +122,17 @@
                 <label for="psw"><b>Contraseña</b></label>
                 <input type="password" placeholder="Ingrese su contraseña" name="psw" required>
 
-                <button type="submit">Iniciar Sesión</button>
+                <button type="button" onclick="window.location.href='/index'">Iniciar Sesión</button>
                 <label>
                     <input type="checkbox" checked="checked" name="remember"> Recordarme
                 </label>
             </div>
 
             <div class="container" style="background-color:#f1f1f1">
-                <button type="button" class="cancelbtn">Cancel</button>
                 <span class="psw"> <a href="#">Olvidó su contraseña?</a></span>
             </div>
         </form>
     </div>
-
 </body>
 
 </html>
