@@ -1,0 +1,25 @@
+/* Ajustes para la imagen de fondo */
+.hero-section .carousel-item img {
+    max-height: 100vh;
+    object-fit: cover;
+}
+
+/* Footer */
+footer {
+    background-color: #222;
+    color: #ccc;
+}
+
+footer p {
+    margin: 0;
+}
+
+.social-icons a {
+    color: #ccc;
+    text-decoration: none;
+}
+
+.social-icons a:hover {
+    color: #FFD700; /* Efecto dorado al pasar el ratón */
+}
+
