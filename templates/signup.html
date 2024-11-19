@@ -100,16 +100,12 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav ms-auto">
                     <li class="nav-item">
-                        <a class="nav-link" href="/add_faces">Agregar</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="/delete_faces">Eliminar</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="#">Contáctenos</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="/login">Iniciar Sesión</a>
+                        <a class="nav-link" href="/">Iniciar Sesión</a>
                     </li>
                 </ul>
             </div>
@@ -129,7 +125,7 @@
                 <input type="password" placeholder="Ingrese su contraseña" name="psw" required>
 
                 <label for="psw-repeat"><b>Repita la contraseña</b></label>
-                <input type="password" placeholder="Repeat Password" name="psw-repeat" required>
+                <input type="password" placeholder="Repita la contraseña" name="psw-repeat" required>
 
                 <label>
                     <input type="checkbox" checked="checked" name="remember" style="margin-bottom:15px"> Recordarme
@@ -137,7 +133,7 @@
 
 
                 <div class="clearfix">
-                    <button type="button" class="cancelbtn">Cancelar</button>
+                    <button type="button" onclick="window.location.href='/'" class="cancelbtn">Cancelar</button>
                     <button type="submit" class="signupbtn">Crear Cuenta</button>
                 </div>
             </div>
