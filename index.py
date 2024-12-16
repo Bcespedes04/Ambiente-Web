@@ -1,6 +1,11 @@
 from flask import Flask, render_template, request, redirect, url_for
 import os
 import shutil
+import cv2
+import imutils
+import numpy as np
+import base64
+from flask import jsonify
 
 app = Flask(__name__)
 
@@ -23,9 +28,113 @@ def roles():
 def index():
     return render_template('index.html')
 
-@app.route('/add_faces')
+@app.route('/add_faces', methods=['GET', 'POST'])
 def add_faces():
-    return render_template('add_faces.html')
+    if request.method == 'POST':
+        # Obtén el nombre del usuario y el archivo de video subido
+        person_name = request.form['person_name']
+        video_file = request.files['video']
+
+        # Validar que se suba un archivo de video
+        if not video_file.filename.lower().endswith(('.mp4', '.avi', '.mov', '.mkv')):
+            return "El archivo subido no es un video válido. Usa formatos: MP4, AVI, MOV, MKV.", 400
+
+        # Crear carpeta para el usuario si no existe
+        person_path = os.path.join(ROSTROS_DIR, person_name)
+        if not os.path.exists(person_path):
+            os.makedirs(person_path)
+
+        # Guardar el archivo de video temporalmente
+        video_path = os.path.join(person_path, video_file.filename)
+        video_file.save(video_path)
+
+        # Procesar el video para extraer rostros
+        try:
+            extraer_rostros(video_path, person_path)
+        except Exception as e:
+            return f"Error al procesar el video: {e}", 500
+
+        # Entrenar modelos con los rostros capturados
+        try:
+            entrenar_modelos(ROSTROS_DIR)
+        except Exception as e:
+            return f"Error al entrenar los modelos: {e}", 500
+
+        # Retorna la plantilla con un mensaje de éxito
+        return render_template('add_faces.html', success=True, person_name=person_name)
+
+    return render_template('add_faces.html', success=False)
+
+def extraer_rostros(video_path, person_path):
+    cap = cv2.VideoCapture(video_path)
+    face_classifier = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+    count = 0
+
+    while True:
+        ret, frame = cap.read()
+        if not ret:
+            break
+        frame = imutils.resize(frame, width=640)
+        gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        aux_frame = frame.copy()
+
+        # Detectar caras
+        faces = face_classifier.detectMultiScale(gray, 1.3, 5)
+        for (x, y, w, h) in faces:
+            rostro = aux_frame[y:y+h, x:x+w]
+            rostro = cv2.resize(rostro, (150, 150), interpolation=cv2.INTER_CUBIC)
+            rostro_path = os.path.join(person_path, f'rostro_{count}.jpg')
+            cv2.imwrite(rostro_path, rostro)
+            count += 1
+
+        if count >= 500:  # Límite de rostros capturados
+            break
+
+    cap.release()
+    if count == 0:
+        raise ValueError("No se detectaron rostros en el video.")
+
+def entrenar_modelos(ruta_imagenes):
+    eigenface_model = cv2.face.EigenFaceRecognizer_create()
+    fisherface_model = cv2.face.FisherFaceRecognizer_create()
+    lbph_model = cv2.face.LBPHFaceRecognizer_create()
+
+    imagenes_entrenamiento = []
+    etiquetas_entrenamiento = []
+    nombres_personas = {}
+    etiqueta_actual = 0
+
+    for nombre_persona in os.listdir(ruta_imagenes):
+        ruta_persona = os.path.join(ruta_imagenes, nombre_persona)
+        if not os.path.isdir(ruta_persona):
+            continue
+
+        nombres_personas[etiqueta_actual] = nombre_persona
+
+        for archivo in os.listdir(ruta_persona):
+            ruta_imagen = os.path.join(ruta_persona, archivo)
+            imagen = cv2.imread(ruta_imagen, cv2.IMREAD_GRAYSCALE)
+            if imagen is None:
+                continue
+
+            imagen = cv2.resize(imagen, (200, 200))
+            imagenes_entrenamiento.append(imagen)
+            etiquetas_entrenamiento.append(etiqueta_actual)
+
+        etiqueta_actual += 1
+
+    imagenes_entrenamiento = np.array(imagenes_entrenamiento)
+    etiquetas_entrenamiento = np.array(etiquetas_entrenamiento)
+
+    eigenface_model.train(imagenes_entrenamiento, etiquetas_entrenamiento)
+    fisherface_model.train(imagenes_entrenamiento, etiquetas_entrenamiento)
+    lbph_model.train(imagenes_entrenamiento, etiquetas_entrenamiento)
+
+    eigenface_model.write(os.path.join(ROSTROS_DIR, 'modeloEigenFace.xml'))
+    fisherface_model.write(os.path.join(ROSTROS_DIR, 'modeloFisherFace.xml'))
+    lbph_model.write(os.path.join(ROSTROS_DIR, 'modeloLBPHFace.xml'))
+
+    print("Modelos entrenados y guardados correctamente.")
 
 @app.route('/delete_faces', methods=['GET', 'POST'])
 def delete_faces():
@@ -45,9 +154,57 @@ def delete_faces():
     folders = [f for f in os.listdir(ROSTROS_DIR) if os.path.isdir(os.path.join(ROSTROS_DIR, f))]
     return render_template('delete_faces.html', folders=folders)
 
-@app.route('/test_recognition')
+@app.route('/test_recognition', methods=['GET', 'POST'])
 def test_recognition():
+    if request.method == 'POST':
+        # Esta lógica puede ser usada si necesitas subir un archivo o enviar datos al servidor
+        pass
     return render_template('test_recognition.html')
+
+@app.route('/process_frame', methods=['POST'])
+def process_frame():
+    try:
+        # Obtener datos del frame enviado
+        data = request.get_json()
+        frame_data = data['frame']
+
+        # Convertir la imagen base64 a un formato que OpenCV pueda procesar
+        frame_data = frame_data.split(',')[1]
+        frame_bytes = base64.b64decode(frame_data)
+        frame_array = np.frombuffer(frame_bytes, dtype=np.uint8)
+        frame = cv2.imdecode(frame_array, cv2.IMREAD_COLOR)
+
+        # Procesar el frame para reconocimiento facial
+        gray_frame = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+        face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + "haarcascade_frontalface_default.xml")
+        rostros = face_cascade.detectMultiScale(gray_frame, scaleFactor=1.1, minNeighbors=5)
+
+        if len(rostros) == 0:
+            return jsonify({"name": "No se detectó ningún rostro."})
+
+        # Seleccionar el primer rostro detectado para reconocimiento
+        x, y, w, h = rostros[0]
+        rostro_recortado = gray_frame[y:y+h, x:x+w]
+        rostro_redimensionado = cv2.resize(rostro_recortado, (200, 200))
+
+        # Cargar los modelos
+        eigenface_model = cv2.face.EigenFaceRecognizer_create()
+        fisherface_model = cv2.face.FisherFaceRecognizer_create()
+        lbph_model = cv2.face.LBPHFaceRecognizer_create()
+
+        eigenface_model.read('modeloEigenFace.xml')
+        fisherface_model.read('modeloFisherFace.xml')
+        lbph_model.read('modeloLBPHFace.xml')
+
+        nombres_personas = ["Astrid", "Brandon"]
+
+        # Predicciones
+        label_lbph, confidence_lbph = lbph_model.predict(rostro_recortado)
+        name_lbph = nombres_personas[label_lbph] if confidence_lbph < 90 else "Desconocido"
+
+        return jsonify({"name": name_lbph})
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(debug=True)
