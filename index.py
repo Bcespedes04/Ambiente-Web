@@ -1,4 +1,4 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, render_template, request, redirect, url_for, session
 import os
 import shutil
 import cv2
@@ -6,18 +6,80 @@ import imutils
 import numpy as np
 import base64
 from flask import jsonify
+'''db connection'''
+from flask_mysqldb import MySQL
+import MySQLdb.cursors # type: ignore
+import MySQLdb.cursors, re, hashlib # type: ignore
+'''session from flask'''
 
 app = Flask(__name__)
 
+'''bd connection details'''
+app.secret_key = 'abcd1234'
+app.config['MYSQL_HOST'] = 'localhost'
+app.config['MYSQL_USER'] = 'root' 
+app.config['MYSQL_PASSWORD'] = 'bucza4-qejxov' #password database schema
+app.config['MYSQL_DB'] = 'ambienteWeb' #schema
+
+mysql = MySQL(app) #db initialization
+login_user = False
 # Ruta donde se encuentran las carpetas de los rostros registrados
 ROSTROS_DIR = r"C:\Users\bcespedes\OneDrive - Traarepuestos\Escritorio\U Fide\Ufide 3er cuatri\Ambiente Web\Proyecto\Data"
 
-@app.route('/')
+@app.route('/login', methods=['GET', 'POST']) #GET no sensitive data / POST sensitive data
 def login():
+    if request.method == 'POST' and 'username' in request.form and 'password' in request.form:
+        username = request.form['username']
+        password = request.form['password']
+        hash = password + app.secret_key
+        hash = hashlib.sha1(hash.encode())
+        password = hash.hexdigest()
+        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+        cursor.callproc('passwordUsernameVerification', [username, password])
+        account = cursor.fetchone()
+        if account:
+            session['Loggedin'] = True
+            session['id'] = account['id']
+            session['username'] = account['username']
+            return redirect(url_for('index'))
+        else:
+            return redirect(url_for('login'))
     return render_template('login.html')
 
-@app.route('/signup')
+@app.route('/logout')
+def logout():
+    session.pop('Loggedin', None)
+    session.pop('id', None)
+    session.pop('username', None)
+    return redirect(url_for('index'))
+
+@app.route('/login/signup', methods=['GET', 'POST'])
 def signup():
+    if request.method == 'POST' and 'username' in request.form and 'password' in request.form and 'email' in request.form:
+        username = request.form['username']
+        password = request.form['password']
+        email = request.form['email']
+                # Check if account exists using MySQL
+        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+        cursor.execute('SELECT * FROM accounts WHERE username = %s', (username,))
+        account = cursor.fetchone()
+        # If account exists show error and validation checks
+        if account:
+            return redirect(url_for('signup.html'))
+        elif not re.match(r'[^@]+@[^@]+\.[^@]+', email):
+            return redirect(url_for('signup.html'))
+        elif not re.match(r'[A-Za-z0-9]+', username):
+            return redirect(url_for('signup.html'))
+        elif not username or not password or not email:
+            return redirect(url_for('signup.html'))
+        else:
+            hash = password + app.secret_key
+            hash = hashlib.sha1(hash.encode())
+            password = hash.hexdigest()
+            cursor.execute('INSERT INTO accounts VALUES (NULL, %s, %s, %s)', (username, password, email,))
+            mysql.connection.commit()
+    elif request.method == 'POST':
+        return redirect(url_for('signup'))
     return render_template('signup.html')
 
 @app.route('/crudRolesUser')
@@ -27,6 +89,19 @@ def roles():
 @app.route('/index')
 def index():
     return render_template('index.html')
+
+@app.route('/profile')
+def profile():
+    if 'Loggedin' in session:
+        cursor = mysql.connection.cursor(MySQLdb.cursors.DictCursor)
+        cursor.execute('SELECT * FROM accounts WHERE id = %s', (session['id'],))
+        account = cursor.fetchone()
+        return render_template('profile.html', account=account)
+    return render_template('login.html')
+
+@app.route('/contact_us')
+def contact_us():
+    return render_template('contact_us.html')
 
 @app.route('/add_faces', methods=['GET', 'POST'])
 def add_faces():
@@ -205,6 +280,7 @@ def process_frame():
         return jsonify({"name": name_lbph})
     except Exception as e:
         return jsonify({"error": str(e)}), 500
+
 
 if __name__ == '__main__':
     app.run(debug=True)
