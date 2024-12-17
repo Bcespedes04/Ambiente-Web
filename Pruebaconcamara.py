@@ -11,7 +11,7 @@ lbph_model = cv2.face.LBPHFaceRecognizer_create()
 
 eigenface_model.read('modeloEigenFace.xml')
 fisherface_model.read('modeloFisherFace.xml')
-lbph_model.read('modeloLBPHFFace.xml')  # Asegúrate de que el nombre del archivo sea correcto
+lbph_model.read('modeloLBPHFace.xml')  # Asegúrate de que el nombre del archivo sea correcto
 
 # Lista de nombres de personas, en el mismo orden de las etiquetas de entrenamiento
 nombres_personas = ["Astrid", "Brandon"]
@@ -58,5 +58,3 @@ while True:
 # Liberar el recurso de la cámara y cerrar ventanas
 video_capture.release()
 cv2.destroyAllWindows()
-
-
