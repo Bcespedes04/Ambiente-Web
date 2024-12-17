@@ -76,11 +76,17 @@
 
     <div class="video-container mt-4 border">
         <video id="camera-stream" autoplay playsinline></video>
+        <canvas id="capture-canvas" style="display: none;"></canvas>
     </div>
 
     <div class="mt-3">
         <button id="start-camera" class="btn btn-primary me-2">Prender Cámara</button>
-        <button id="stop-camera" class="btn btn-danger">Apagar Cámara</button>
+        <button id="stop-camera" class="btn btn-danger me-2">Apagar Cámara</button>
+        <button id="capture-frame" class="btn btn-success">Capturar y Reconocer</button>
+    </div>
+
+    <div class="mt-3">
+        <h4 id="recognition-result">Resultado: Ninguno</h4>
     </div>
 </div>
 
@@ -95,10 +101,13 @@
 <script>
     const startCamera = document.getElementById('start-camera');
     const stopCamera = document.getElementById('stop-camera');
+    const captureFrame = document.getElementById('capture-frame');
     const cameraStream = document.getElementById('camera-stream');
+    const captureCanvas = document.getElementById('capture-canvas');
+    const recognitionResult = document.getElementById('recognition-result');
     let stream = null;
 
-    // Función para prender la cámara
+    // Prender cámara
     startCamera.addEventListener('click', async () => {
         try {
             stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -108,7 +117,7 @@
         }
     });
 
-    // Función para apagar la cámara
+    // Apagar cámara
     stopCamera.addEventListener('click', () => {
         if (stream) {
             const tracks = stream.getTracks();
@@ -117,9 +126,35 @@
             stream = null;
         }
     });
+
+    // Capturar cuadro y enviar para reconocimiento
+    captureFrame.addEventListener('click', async () => {
+        if (!stream) {
+            alert('La cámara no está encendida.');
+            return;
+        }
+
+        const ctx = captureCanvas.getContext('2d');
+        captureCanvas.width = cameraStream.videoWidth;
+        captureCanvas.height = cameraStream.videoHeight;
+        ctx.drawImage(cameraStream, 0, 0, captureCanvas.width, captureCanvas.height);
+
+        const frameData = captureCanvas.toDataURL('image/jpeg');
+
+        try {
+            const response = await fetch('/process_frame', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ frame: frameData })
+            });
+
+            const result = await response.json();
+            recognitionResult.textContent = Resultado: ${result.name};
+        } catch (error) {
+            alert('Error al procesar el cuadro: ' + error.message);
+        }
+    });
 </script>
 
 </body>
 </html>
-
-
